@@ -6,7 +6,7 @@ use App::TestPlugin;
 
 get '/' => sub {
     my $res = foo_from_plugin('Foo');
-    ::is( $res, 'OK', 'Plugin returned OK' );
+    ::is($res, 'OK', 'Plugin returned OK');
     return 'GET DONE';
 };
 

@@ -6,8 +6,8 @@ use Dancer2::Plugin;
 plugin_keywords('foo_from_plugin');
 
 sub foo_from_plugin {
-    my ( $self, $arg ) = @_;
-    ::is( $arg, 'Foo', 'Correct argument to plugin' );
+    my ($self, $arg) = @_;
+    ::is($arg, 'Foo', 'Correct argument to plugin');
     params();
     return 'OK';
 }

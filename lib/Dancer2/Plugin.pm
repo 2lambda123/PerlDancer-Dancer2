@@ -1,4 +1,5 @@
 package Dancer2::Plugin;
+
 # ABSTRACT: base class for Dancer2 plugins
 
 use strict;
@@ -24,19 +25,19 @@ has app => (
 );
 
 has config => (
-    is => 'ro',
-    lazy => 1,
+    is      => 'ro',
+    lazy    => 1,
     default => sub {
-        my $self = shift;
-        my $config = $self->app->config;
-        my $package = ref $self; # TODO
+        my $self    = shift;
+        my $config  = $self->app->config;
+        my $package = ref $self;            # TODO
         $package =~ s/Dancer2::Plugin:://;
         $config->{plugins}{$package} || {};
     },
 );
 
 my $_keywords = {};
-sub keywords { $_keywords }
+sub keywords {$_keywords}
 
 my $REF_ADDR_REGEX = qr{
     [A-Za-z0-9\:\_]+
@@ -53,34 +54,31 @@ our $_keywords_by_plugin = {};
 has '+hooks' => (
     default => sub {
         my $plugin = shift;
-        my $name = 'plugin.' . lc ref $plugin;
+        my $name   = 'plugin.' . lc ref $plugin;
         $name =~ s/Dancer2::Plugin:://i;
         $name =~ s/::/_/g;
 
-        +{
-            map { join( '.', $name, $_ ) => [] }
-                @{ $plugin->ClassHooks }
-        };
+        +{map { join('.', $name, $_) => [] } @{$plugin->ClassHooks}};
     },
 );
 
 sub add_hooks {
     my $class = shift;
-    push @{ $class->ClassHooks }, @_;
+    push @{$class->ClassHooks}, @_;
 }
 
 sub execute_plugin_hook {
-    my ( $self, $name, @args ) = @_;
+    my ($self, $name, @args) = @_;
     my $plugin_class = ref $self;
 
     $self->isa('Dancer2::Plugin')
-        or croak "Cannot call plugin hook ($name) from outside plugin";
-    $plugin_class =~ s/^Dancer2::Plugin:://; # short names
+      or croak "Cannot call plugin hook ($name) from outside plugin";
+    $plugin_class =~ s/^Dancer2::Plugin:://;    # short names
 
     my $full_name = 'plugin.' . lc($plugin_class) . ".$name";
     $full_name =~ s/::/_/g;
 
-    $self->app->execute_hook( $full_name, @args );
+    $self->app->execute_hook($full_name, @args);
 }
 
 # both functions are there for D2::Core::Role::Hookable
@@ -94,42 +92,44 @@ sub hook_aliases    { $_[0]->{'hook_aliases'} ||= {} }
 # both 'from_config' and 'plugin_keyword'
 sub _p2_has {
     my $class = shift;
-    $class->_p2_has_from_config( $class->_p2_has_keyword( @_ ) );
-};
+    $class->_p2_has_from_config($class->_p2_has_keyword(@_));
+}
 
 sub _p2_has_from_config {
-    my( $class, $name, %args ) = @_;
+    my ($class, $name, %args) = @_;
 
     my $config_name = delete $args{'from_config'}
-        or return ( $name, %args );
+      or return ($name, %args);
 
     $args{lazy} = 1;
 
-    if ( ref $config_name eq 'CODE' ) {
+    if (ref $config_name eq 'CODE') {
         $args{default} ||= $config_name;
         $config_name = 1;
     }
 
     $config_name = $name if $config_name eq '1';
-    my $orig_default = $args{default} || sub{};
+    my $orig_default = $args{default} || sub { };
     $args{default} = sub {
         my $plugin = shift;
-        my $value = reduce { eval { $a->{$b} } } $plugin->config, split '\.', $config_name;
-        return defined $value ? $value: $orig_default->($plugin);
+        my $value  = reduce {
+            eval { $a->{$b} }
+        } $plugin->config, split '\.', $config_name;
+        return defined $value ? $value : $orig_default->($plugin);
     };
 
     return $name => %args;
 }
 
 sub _p2_has_keyword {
-    my( $class, $name, %args ) = @_;
+    my ($class, $name, %args) = @_;
 
-    if( my $keyword = delete $args{plugin_keyword} ) {
+    if (my $keyword = delete $args{plugin_keyword}) {
 
         $keyword = $name if $keyword eq '1';
 
         $class->keywords->{$_} = sub { (shift)->$name(@_) }
-            for ref $keyword ? @$keyword : $keyword;
+          for ref $keyword ? @$keyword : $keyword;
     }
 
     return $name => %args;
@@ -139,8 +139,8 @@ sub _p2_has_keyword {
 
 # :PluginKeyword shenanigans
 
-sub PluginKeyword :ATTR(CODE,BEGIN) {
-    my( $class, $sym_ref, $code, undef, $args ) = @_;
+sub PluginKeyword : ATTR(CODE,BEGIN) {
+    my ($class, $sym_ref, $code, undef, $args) = @_;
 
     # importing at BEGIN stage doesn't work with 5.10 :-(
     return unless ref $sym_ref;
@@ -149,7 +149,7 @@ sub PluginKeyword :ATTR(CODE,BEGIN) {
 
     $args = join '', @$args if ref $args eq 'ARRAY';
 
-    for my $name ( split ' ', $args || $func_name ) {
+    for my $name (split ' ', $args || $func_name) {
         $class->keywords->{$name} = $code;
     }
 
@@ -165,21 +165,25 @@ sub PluginKeyword :ATTR(CODE,BEGIN) {
 our @EXPORT = qw/ :plugin /;
 
 # compatibility - it will be removed soon!
-my $no_dsl = {};
+my $no_dsl       = {};
 my $exported_app = {};
+
 sub _exporter_expand_tag {
-    my( $class, $name, $args, $global ) = @_;
+    my ($class, $name, $args, $global) = @_;
 
     my $caller = $global->{into};
 
     $name eq 'no_dsl' and $no_dsl->{$caller} = 1;
+
     # no_dsl check here is for compatibility only
     # it will be removed soon!
     return _exporter_plugin($caller)
-        if $name eq 'plugin' or $name eq 'no_dsl';
+      if $name eq 'plugin' or $name eq 'no_dsl';
 
-    return _exporter_app($class,$caller,$global)
-        if $name eq 'app' and $caller->can('app') and !$no_dsl->{$class};
+    return _exporter_app($class, $caller, $global)
+      if $name eq 'app'
+      and $caller->can('app')
+      and !$no_dsl->{$class};
 
     return;
 
@@ -188,7 +192,7 @@ sub _exporter_expand_tag {
 # plugin has been called within a D2 app. Modify
 # the app and export keywords
 sub _exporter_app {
-    my( $class, $caller, $global ) = @_;
+    my ($class, $caller, $global) = @_;
 
     $exported_app->{$caller} = 1;
 
@@ -197,11 +201,11 @@ sub _exporter_app {
     # but with this, you can import to anything
     # that has a DSL with an app, which translates to "also plugins"
     my $app = eval("${caller}::app()") || eval { $caller->dsl->app }
-        or return; ## no critic
+      or return;    ## no critic
 
     return unless $app->can('with_plugin');
 
-    my $plugin = $app->with_plugin( "+" . $class );
+    my $plugin = $app->with_plugin("+" . $class);
     $global->{plugin} = $plugin;
 
     return unless $class->can('keywords');
@@ -214,8 +218,9 @@ sub _exporter_app {
     # exists.
     # This adds a caveat that two plugins cannot register
     # the same hook name, but that will be deprecated anyway.
-    {;
-        foreach my $hook ( @{ $plugin->ClassHooks } ) {
+    {
+        ;
+        foreach my $hook (@{$plugin->ClassHooks}) {
             my $full_name = 'plugin.' . lc($class) . ".$hook";
             $full_name =~ s/Dancer2::Plugin:://i;
             $full_name =~ s/::/_/g;
@@ -229,8 +234,8 @@ sub _exporter_app {
             # copy the hooks from the plugin to the app
             # this is in case they were created at import time
             # rather than after
-            @{ $plugin->app->hooks }{ keys %{ $plugin->hooks } } =
-                values %{ $plugin->hooks };
+            @{$plugin->app->hooks}{keys %{$plugin->hooks}} =
+              values %{$plugin->hooks};
         }
     }
 
@@ -241,7 +246,7 @@ sub _exporter_app {
         $instances{$plugin_addr}{'config'} = sub { $plugin->config };
         $instances{$plugin_addr}{'app'}    = $plugin->app;
 
-        Scalar::Util::weaken( $instances{$plugin_addr}{'app'} );
+        Scalar::Util::weaken($instances{$plugin_addr}{'app'});
 
         ## no critic
         no strict 'refs';
@@ -257,7 +262,7 @@ sub _exporter_app {
             my ($plugin_addr) = "$CUR_PLUGIN" =~ $REF_ADDR_REGEX;
 
             $plugin_addr
-                or Carp::croak('Can\'t find originating plugin');
+              or Carp::croak('Can\'t find originating plugin');
 
             # we need to do this because plugins might call "set"
             # in order to change plugin configuration but it doesn't
@@ -266,61 +271,63 @@ sub _exporter_app {
             my $name = ref $CUR_PLUGIN;
             $name =~ s/^Dancer2::Plugin:://g;
 
-            my $plugin_inst       = $instances{$plugin_addr};
-            my $plugin_config     = $plugin_inst->{'config'}->();
-            my $app_plugin_config = $plugin_inst->{'app'}->config->{'plugins'}{$name};
+            my $plugin_inst   = $instances{$plugin_addr};
+            my $plugin_config = $plugin_inst->{'config'}->();
+            my $app_plugin_config =
+              $plugin_inst->{'app'}->config->{'plugins'}{$name};
 
-            return { %{ $plugin_config || {} }, %{ $app_plugin_config || {} } };
+            return {%{$plugin_config || {}}, %{$app_plugin_config || {}}};
         };
 
         # FIXME:
         # why doesn't this work? it's like it's already defined somewhere
         # but i'm not sure where. seems like AUTOLOAD runs it.
         #$class->can('execute_hook') or
-            *{"${class}::execute_hook"}   = sub {
-                # this can also be called by App.pm itself
-                # if the plugin is a
-                # "candidate" for a hook
-                # See: App.pm "execute_hook" method, "around" modifier
-                if ( $_[0]->isa('Dancer2::Plugin') ) {
-                    # this means it's probably our hook, we need to verify it
-                    my ( $plugin_self, $hook_name, @args ) = @_;
+        *{"${class}::execute_hook"} = sub {
 
-                    my $plugin_class = lc $class;
-                    $plugin_class =~ s/^dancer2::plugin:://;
-                    $plugin_class =~ s{::}{_}g;
+            # this can also be called by App.pm itself
+            # if the plugin is a
+            # "candidate" for a hook
+            # See: App.pm "execute_hook" method, "around" modifier
+            if ($_[0]->isa('Dancer2::Plugin')) {
 
-                    # you're either calling it with the full qualifier or not
-                    # if not, use the execute_plugin_hook instead
-                    if ( $plugin->hooks->{"plugin.$plugin_class.$hook_name"} ) {
-                        Carp::carp("Please use fully qualified hook name or "
-                                 . "the method execute_plugin_hook");
-                        $hook_name = "plugin.$plugin_class.$hook_name";
-                    }
+                # this means it's probably our hook, we need to verify it
+                my ($plugin_self, $hook_name, @args) = @_;
 
-                    $hook_name =~ /^plugin\.$plugin_class/
-                        or Carp::croak('Unknown plugin called through other plugin');
+                my $plugin_class = lc $class;
+                $plugin_class =~ s/^dancer2::plugin:://;
+                $plugin_class =~ s{::}{_}g;
 
-                    # now we can't really use the app to execute it because
-                    # the "around" modifier is the one calling us to begin
-                    # with, so we need to call it directly ourselves
-                    # this is okay because the modifier is there only to
-                    # call candidates, like us (this is in fact how and
-                    # why we were called)
-                    $_->( $plugin_self, @args )
-                        for @{ $plugin->hooks->{$hook_name} };
-
-                    return;
+                # you're either calling it with the full qualifier or not
+                # if not, use the execute_plugin_hook instead
+                if ($plugin->hooks->{"plugin.$plugin_class.$hook_name"}) {
+                    Carp::carp("Please use fully qualified hook name or "
+                          . "the method execute_plugin_hook");
+                    $hook_name = "plugin.$plugin_class.$hook_name";
                 }
 
-                return $plugin->app->execute_hook(@_);
+                $hook_name =~ /^plugin\.$plugin_class/
+                  or Carp::croak('Unknown plugin called through other plugin');
+
+                # now we can't really use the app to execute it because
+                # the "around" modifier is the one calling us to begin
+                # with, so we need to call it directly ourselves
+                # this is okay because the modifier is there only to
+                # call candidates, like us (this is in fact how and
+                # why we were called)
+                $_->($plugin_self, @args) for @{$plugin->hooks->{$hook_name}};
+
+                return;
+            }
+
+            return $plugin->app->execute_hook(@_);
         };
     }
 
     local $CUR_PLUGIN = $plugin;
-    $_->($plugin) for @{ $plugin->_DANCER2_IMPORT_TIME_SUBS() };
+    $_->($plugin) for @{$plugin->_DANCER2_IMPORT_TIME_SUBS()};
 
-    map { [ $_ =>  {plugin => $plugin}  ] } keys %{ $plugin->keywords };
+    map { [$_ => {plugin => $plugin}] } keys %{$plugin->keywords};
 }
 
 # turns the caller namespace into
@@ -328,9 +335,9 @@ sub _exporter_app {
 sub _exporter_plugin {
     my $caller = shift;
     require_module('Dancer2::Core::DSL');
-    my $keywords_list = join ' ', keys %{ Dancer2::Core::DSL->dsl_keywords };
+    my $keywords_list = join ' ', keys %{Dancer2::Core::DSL->dsl_keywords};
 
-    eval <<"END"; ## no critic
+    eval <<"END";    ## no critic
         {
             package $caller;
             use Moo;
@@ -411,7 +418,7 @@ sub _exporter_plugin {
         }
 END
 
-    $no_dsl->{$caller} or eval <<"END"; ## no critic
+    $no_dsl->{$caller} or eval <<"END";    ## no critic
         {
             package $caller;
 
@@ -455,7 +462,7 @@ END
 
     my $app_dsl_cb = _find_consumer();
 
-    if ( $app_dsl_cb ) {
+    if ($app_dsl_cb) {
         my $dsl = $app_dsl_cb->();
 
         {
@@ -465,17 +472,17 @@ END
         }
     }
 
-    return map { [ $_ => { class => $caller } ] }
-               qw/ plugin_keywords plugin_hooks /;
+    return
+      map { [$_ => {class => $caller}] } qw/ plugin_keywords plugin_hooks /;
 }
 
 sub _find_consumer {
     my $class;
 
     ## no critic qw(ControlStructures::ProhibitCStyleForLoops)
-    for ( my $i = 1; my $caller = caller($i); $i++ ) {
+    for (my $i = 1; my $caller = caller($i); $i++) {
         $class = $caller->can('dsl')
-            and last;
+          and last;
     }
 
     # If you use a Dancer2 plugin outside a Dancer App, this fails.
@@ -484,7 +491,7 @@ sub _find_consumer {
     #    or croak('Could not find Dancer2 app');
 
     return $class;
-};
+}
 
 # This has to be called for now at the end of every plugin package, in order to
 # map the keywords of the associated app to the plugin, so that these keywords
@@ -501,59 +508,63 @@ sub register_plugin {
     # have a different DSL with a different list of keywords.
 
     my $_DANCER2_IMPORT_TIME_SUBS = $plugin_module->_DANCER2_IMPORT_TIME_SUBS;
-    unshift(@$_DANCER2_IMPORT_TIME_SUBS, sub {
-                my $app_dsl_cb = _find_consumer();
+    unshift(
+        @$_DANCER2_IMPORT_TIME_SUBS,
+        sub {
+            my $app_dsl_cb = _find_consumer();
 
-                # Here we want to verify that "register_plugin" compat keyword
-                # was in fact only called from an app.
-                $app_dsl_cb
-                      or Carp::croak(
-                        'I could not find a Dancer App for this plugin');
+            # Here we want to verify that "register_plugin" compat keyword
+            # was in fact only called from an app.
+            $app_dsl_cb
+              or Carp::croak('I could not find a Dancer App for this plugin');
 
-                my $dsl = $app_dsl_cb->();
+            my $dsl = $app_dsl_cb->();
 
-                foreach my $keyword ( keys %{ $dsl->dsl_keywords} ) {
-                    # if not yet defined, inject the keyword in the plugin
-                    # namespace, but make sure the code will always get the
-                    # coderef from the right associated app, because one plugin
-                    # can be used by multiple apps. Note that we remove the
-                    # first parameter (plugin instance) from what we pass to
-                    # the keyword implementation of the App
-                    no strict 'refs';
-                    $plugin_module->can($keyword)
-                      or *{"${plugin_module}::$keyword"} = sub {
-                        $_[0]
-                          ? do {
-                            my $cb = shift()->app->name->can($keyword);
-                            $cb->(@_);
-                          }
-                          : $app_dsl_cb->(@_);
-                      };
-                }
-            });
+            foreach my $keyword (keys %{$dsl->dsl_keywords}) {
+
+                # if not yet defined, inject the keyword in the plugin
+                # namespace, but make sure the code will always get the
+                # coderef from the right associated app, because one plugin
+                # can be used by multiple apps. Note that we remove the
+                # first parameter (plugin instance) from what we pass to
+                # the keyword implementation of the App
+                no strict 'refs';
+                $plugin_module->can($keyword)
+                  or *{"${plugin_module}::$keyword"} = sub {
+                    $_[0]
+                      ? do {
+                        my $cb = shift()->app->name->can($keyword);
+                        $cb->(@_);
+                      }
+                      : $app_dsl_cb->(@_);
+                  };
+            }
+        }
+    );
 }
 
 sub _exporter_expand_sub {
-    my( $plugin, $name, $args, $global ) = @_;
+    my ($plugin, $name, $args, $global) = @_;
     my $class = $args->{class};
 
-    return _exported_plugin_keywords($plugin,$class)
-        if $name eq 'plugin_keywords';
+    return _exported_plugin_keywords($plugin, $class)
+      if $name eq 'plugin_keywords';
 
     return _exported_plugin_hooks($class)
-        if $name eq 'plugin_hooks';
+      if $name eq 'plugin_hooks';
 
-    $exported_app->{ $global->{'into'} }
-        or Carp::croak('Specific subroutines cannot be exported from plugin');
+    $exported_app->{$global->{'into'}}
+      or Carp::croak('Specific subroutines cannot be exported from plugin');
 
     # otherwise, we're exporting a keyword
 
-    my $p = $args->{plugin};
+    my $p   = $args->{plugin};
     my $sub = $p->keywords->{$name};
     return $name => sub(@) {
+
         # localize the plugin so we can get it later
         local $CUR_PLUGIN = $p;
-        $sub->($p,@_);
+        $sub->($p, @_);
     }
 }
 
@@ -574,7 +585,7 @@ sub _exporter_expand_sub {
     no warnings 'redefine';
     my $orig_cb = Dancer2::Core::App->can('add_hook');
     $orig_cb and *{'Dancer2::Core::App::add_hook'} = sub {
-        my ( $app, $hook ) = @_;
+        my ($app, $hook) = @_;
 
         my $hook_code = $hook->code;
         my $plugin    = $CUR_PLUGIN;
@@ -590,15 +601,16 @@ sub _exporter_expand_sub {
 
 
 # define the exported 'plugin_keywords'
-sub _exported_plugin_keywords{
-    my( $plugin, $class ) = @_;
+sub _exported_plugin_keywords {
+    my ($plugin, $class) = @_;
 
     return plugin_keywords => sub(@) {
-        while( my $name = shift @_ ) {
+        while (my $name = shift @_) {
             ## no critic
-            my $sub = ref $_[0] eq 'CODE'
-                ? shift @_
-                : eval '\&'.$class."::" . ( ref $name ? $name->[0] : $name );
+            my $sub =
+              ref $_[0] eq 'CODE'
+              ? shift @_
+              : eval '\&' . $class . "::" . (ref $name ? $name->[0] : $name);
             $class->keywords->{$_} = $sub for ref $name ? @$name : $name;
         }
     }
